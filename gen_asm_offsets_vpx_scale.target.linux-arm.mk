@@ -23,7 +23,7 @@ $(gyp_intermediate_dir)/vpx_scale_asm_offsets.o: gyp_shared_intermediate_dir := 
 $(gyp_intermediate_dir)/vpx_scale_asm_offsets.o: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
 $(gyp_intermediate_dir)/vpx_scale_asm_offsets.o: $(LOCAL_PATH)/third_party/libvpx/unpack_lib_posix.sh $(GYP_TARGET_DEPENDENCIES)
 	@echo "Gyp action: third_party_libvpx_libvpx_gyp_gen_asm_offsets_vpx_scale_target_unpack_lib_posix ($@)"
-	$(hide)cd $(gyp_local_path)/third_party/libvpx; mkdir -p $(gyp_intermediate_dir); ../../third_party/libvpx/unpack_lib_posix.sh -d "$(gyp_intermediate_dir)" -f vpx_scale_asm_offsets.o -a "$(gyp_shared_intermediate_dir)/libvpx_asm_offsets_vpx_scale.a" -a "$(obj).$(TOOLSET)/third_party/libvpx/libvpx_asm_offsets_vpx_scale.a" -a "$(obj).$(TOOLSET)/Source/WebKit/chromium/third_party/libvpx/libvpx_asm_offsets_vpx_scale.a" -a "$(PWD)/$(call intermediates-dir-for, STATIC_LIBRARIES, libvpx_asm_offsets_vpx_scale,,, $(GYP_VAR_PREFIX))/libvpx_asm_offsets_vpx_scale.a" -r "$(realpath $($(GYP_VAR_PREFIX)TARGET_AR))"
+	$(hide)cd $(gyp_local_path)/third_party/libvpx; mkdir -p $(gyp_intermediate_dir); ../../third_party/libvpx/unpack_lib_posix.sh -d "$(gyp_intermediate_dir)" -f vpx_scale_asm_offsets.o -a "$(gyp_shared_intermediate_dir)/libvpx_asm_offsets_vpx_scale.a" -a "$(obj).$(TOOLSET)/third_party/libvpx/libvpx_asm_offsets_vpx_scale.a" -a "$(obj).$(TOOLSET)/Source/WebKit/chromium/third_party/libvpx/libvpx_asm_offsets_vpx_scale.a" -a "$(call intermediates-dir-for, STATIC_LIBRARIES, libvpx_asm_offsets_vpx_scale,,, $(GYP_VAR_PREFIX))/libvpx_asm_offsets_vpx_scale.a" -r "$($(GYP_VAR_PREFIX)TARGET_AR)"
 
 
 
