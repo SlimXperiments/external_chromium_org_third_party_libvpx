@@ -20,10 +20,11 @@ GYP_TARGET_DEPENDENCIES := \
 $(gyp_intermediate_dir)/vp8_asm_enc_offsets.o: gyp_local_path := $(LOCAL_PATH)
 $(gyp_intermediate_dir)/vp8_asm_enc_offsets.o: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
 $(gyp_intermediate_dir)/vp8_asm_enc_offsets.o: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
+$(gyp_intermediate_dir)/vp8_asm_enc_offsets.o: gyp_var_prefix := $(GYP_VAR_PREFIX)
 $(gyp_intermediate_dir)/vp8_asm_enc_offsets.o: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
 $(gyp_intermediate_dir)/vp8_asm_enc_offsets.o: $(LOCAL_PATH)/third_party/libvpx/unpack_lib_posix.sh $(GYP_TARGET_DEPENDENCIES)
 	@echo "Gyp action: third_party_libvpx_libvpx_gyp_gen_asm_offsets_vp8_target_unpack_lib_posix ($@)"
-	$(hide)cd $(gyp_local_path)/third_party/libvpx; mkdir -p $(gyp_intermediate_dir); ../../third_party/libvpx/unpack_lib_posix.sh -d "$(gyp_intermediate_dir)" -f vp8_asm_enc_offsets.o -a "$(gyp_shared_intermediate_dir)/libvpx_asm_offsets_vp8.a" -a "$(obj).$(TOOLSET)/third_party/libvpx/libvpx_asm_offsets_vp8.a" -a "$(obj).$(TOOLSET)/Source/WebKit/chromium/third_party/libvpx/libvpx_asm_offsets_vp8.a" -a "$(realpath $(call intermediates-dir-for, STATIC_LIBRARIES, libvpx_asm_offsets_vp8,,, $(GYP_VAR_PREFIX)))/libvpx_asm_offsets_vp8.a" -r "$(realpath $($(GYP_VAR_PREFIX)TARGET_AR))"
+	$(hide)cd $(gyp_local_path)/third_party/libvpx; mkdir -p $(gyp_intermediate_dir); ../../third_party/libvpx/unpack_lib_posix.sh -d "$(gyp_intermediate_dir)" -f vp8_asm_enc_offsets.o -a "$(gyp_shared_intermediate_dir)/libvpx_asm_offsets_vp8.a" -a "$(obj).$(TOOLSET)/third_party/libvpx/libvpx_asm_offsets_vp8.a" -a "$(obj).$(TOOLSET)/Source/WebKit/chromium/third_party/libvpx/libvpx_asm_offsets_vp8.a" -a "$(realpath $(call intermediates-dir-for, STATIC_LIBRARIES, libvpx_asm_offsets_vp8,,, $(gyp_var_prefix)))/libvpx_asm_offsets_vp8.a" -r "$(realpath $($(gyp_var_prefix)TARGET_AR))"
 
 
 
