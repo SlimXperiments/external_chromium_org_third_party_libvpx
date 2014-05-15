@@ -40,8 +40,6 @@
 extern "C" {
 #endif
 
-// #define MODE_TEST_HIT_STATS
-
 #define DEFAULT_GF_INTERVAL         10
 
 #define MAX_MODES 30
@@ -276,6 +274,7 @@ typedef struct VP9EncoderConfig {
 
   int arnr_max_frames;
   int arnr_strength;
+  int arnr_type;
 
   int tile_columns;
   int tile_rows;
@@ -336,8 +335,6 @@ typedef struct VP9_COMP {
   YV12_BUFFER_CONFIG scaled_source;
   YV12_BUFFER_CONFIG *unscaled_last_source;
   YV12_BUFFER_CONFIG scaled_last_source;
-
-  int key_frame_frequency;
 
   int gold_is_last;  // gold same as last frame ( short circuit gold searches)
   int alt_is_last;  // Alt same as last ( short circuit altref search)
@@ -445,7 +442,6 @@ typedef struct VP9_COMP {
 
   YV12_BUFFER_CONFIG alt_ref_buffer;
   YV12_BUFFER_CONFIG *frames[MAX_LAG_BUFFERS];
-  int fixed_divide[512];
 
 #if CONFIG_INTERNAL_STATS
   unsigned int mode_chosen_counts[MAX_MODES];
@@ -499,6 +495,14 @@ typedef struct VP9_COMP {
 
   int frame_flags;
 
+  search_site_config ss_cfg;
+
+  int mbmode_cost[INTRA_MODES];
+  unsigned inter_mode_cost[INTER_MODE_CONTEXTS][INTER_MODES];
+  int intra_uv_mode_cost[FRAME_TYPES][INTRA_MODES];
+  int y_mode_costs[INTRA_MODES][INTRA_MODES][INTRA_MODES];
+  int switchable_interp_costs[SWITCHABLE_FILTER_CONTEXTS][SWITCHABLE_FILTERS];
+
 #if CONFIG_MULTIPLE_ARF
   // ARF tracking variables.
   int multi_arf_enabled;
@@ -510,11 +514,6 @@ typedef struct VP9_COMP {
   int arf_buffered;
   int this_frame_weight;
   int max_arf_level;
-#endif
-
-#ifdef MODE_TEST_HIT_STATS
-  // Debug / test stats
-  int64_t mode_test_hits[BLOCK_SIZES];
 #endif
 } VP9_COMP;
 
@@ -594,7 +593,8 @@ static INLINE YV12_BUFFER_CONFIG *get_ref_frame_buffer(
 // alt ref frames tend to be coded at a higher than ambient quality
 static INLINE int frame_is_boosted(const VP9_COMP *cpi) {
   return frame_is_intra_only(&cpi->common) || cpi->refresh_alt_ref_frame ||
-         (cpi->refresh_golden_frame && !cpi->rc.is_src_frame_alt_ref);
+         (cpi->refresh_golden_frame && !cpi->rc.is_src_frame_alt_ref) ||
+         vp9_is_upper_layer_key_frame(cpi);
 }
 
 static INLINE int get_token_alloc(int mb_rows, int mb_cols) {

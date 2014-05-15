@@ -18,6 +18,7 @@ GYP_TARGET_DEPENDENCIES := \
 
 ### Rules for action "unpack_lib_posix":
 $(gyp_intermediate_dir)/vp8_asm_enc_offsets.o: gyp_local_path := $(LOCAL_PATH)
+$(gyp_intermediate_dir)/vp8_asm_enc_offsets.o: gyp_var_prefix := $(GYP_VAR_PREFIX)
 $(gyp_intermediate_dir)/vp8_asm_enc_offsets.o: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
 $(gyp_intermediate_dir)/vp8_asm_enc_offsets.o: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
 $(gyp_intermediate_dir)/vp8_asm_enc_offsets.o: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
@@ -31,6 +32,7 @@ $(gyp_intermediate_dir)/vp8_asm_enc_offsets.o: $(LOCAL_PATH)/third_party/libvpx/
 ### Generated for rule "third_party_libvpx_libvpx_gyp_gen_asm_offsets_vp8_target_obj_int_extract":
 # "{'inputs': ['$(gyp_shared_intermediate_dir)/libvpx_obj_int_extract', 'obj_int_extract.py'], 'extension': 'o', 'outputs': ['$(gyp_shared_intermediate_dir)/third_party/libvpx/%(INPUT_ROOT)s.asm'], 'rule_name': 'obj_int_extract', 'rule_sources': ['$(gyp_intermediate_dir)/vp8_asm_enc_offsets.o'], 'action': ['python', '../../third_party/libvpx/obj_int_extract.py', '-e', '$(gyp_shared_intermediate_dir)/libvpx_obj_int_extract', '-f', 'rvds', '-b', '$(RULE_SOURCES)', '-o', '$(gyp_shared_intermediate_dir)/third_party/libvpx/%(INPUT_ROOT)s.asm'], 'message': 'Generate assembly offsets $(RULE_SOURCES)'}":
 $(gyp_shared_intermediate_dir)/third_party/libvpx/vp8_asm_enc_offsets.asm: gyp_local_path := $(LOCAL_PATH)
+$(gyp_shared_intermediate_dir)/third_party/libvpx/vp8_asm_enc_offsets.asm: gyp_var_prefix := $(GYP_VAR_PREFIX)
 $(gyp_shared_intermediate_dir)/third_party/libvpx/vp8_asm_enc_offsets.asm: gyp_intermediate_dir := $(abspath $(gyp_intermediate_dir))
 $(gyp_shared_intermediate_dir)/third_party/libvpx/vp8_asm_enc_offsets.asm: gyp_shared_intermediate_dir := $(abspath $(gyp_shared_intermediate_dir))
 $(gyp_shared_intermediate_dir)/third_party/libvpx/vp8_asm_enc_offsets.asm: export PATH := $(subst $(ANDROID_BUILD_PATHS),,$(PATH))
@@ -68,7 +70,6 @@ MY_CFLAGS_Debug := \
 	-mfpmath=sse \
 	-mmmx \
 	-m32 \
-	-fuse-ld=gold \
 	-ffunction-sections \
 	-funwind-tables \
 	-g \
@@ -109,6 +110,7 @@ MY_DEFS_Debug := \
 	'-DCLD_VERSION=1' \
 	'-DENABLE_PRINTING=1' \
 	'-DENABLE_MANAGED_USERS=1' \
+	'-DVIDEO_HOLE=1' \
 	'-DUSE_OPENSSL=1' \
 	'-DUSE_OPENSSL_CERTS=1' \
 	'-DANDROID' \
@@ -154,7 +156,6 @@ MY_CFLAGS_Release := \
 	-mfpmath=sse \
 	-mmmx \
 	-m32 \
-	-fuse-ld=gold \
 	-ffunction-sections \
 	-funwind-tables \
 	-g \
@@ -195,6 +196,7 @@ MY_DEFS_Release := \
 	'-DCLD_VERSION=1' \
 	'-DENABLE_PRINTING=1' \
 	'-DENABLE_MANAGED_USERS=1' \
+	'-DVIDEO_HOLE=1' \
 	'-DUSE_OPENSSL=1' \
 	'-DUSE_OPENSSL_CERTS=1' \
 	'-DANDROID' \

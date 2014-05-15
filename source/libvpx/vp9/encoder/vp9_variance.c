@@ -113,12 +113,9 @@ unsigned int vp9_get_mb_ss_c(const int16_t *src_ptr) {
 unsigned int vp9_variance##W##x##H##_c(const uint8_t *a, int a_stride, \
                                        const uint8_t *b, int b_stride, \
                                        unsigned int *sse) { \
-  unsigned int var; \
-  int avg; \
-\
-  variance(a, a_stride, b, b_stride, W, H, &var, &avg); \
-  *sse = var; \
-  return var - (((int64_t)avg * avg) / (W * H)); \
+  int sum; \
+  variance(a, a_stride, b, b_stride, W, H, sse, &sum); \
+  return *sse - (((int64_t)sum * sum) / (W * H)); \
 }
 
 #define SUBPIX_VAR(W, H) \
@@ -159,69 +156,36 @@ unsigned int vp9_sub_pixel_avg_variance##W##x##H##_c( \
   return vp9_variance##W##x##H##_c(temp3, W, dst, dst_stride, sse); \
 }
 
-
-void vp9_get_sse_sum_16x16_c(const uint8_t *src_ptr, int source_stride,
-                             const uint8_t *ref_ptr, int ref_stride,
-                             unsigned int *sse, int *sum) {
-  variance(src_ptr, source_stride, ref_ptr, ref_stride, 16, 16, sse, sum);
-}
-
-void vp9_get_sse_sum_8x8_c(const uint8_t *src_ptr, int source_stride,
-                       const uint8_t *ref_ptr, int ref_stride,
-                       unsigned int *sse, int *sum) {
-  variance(src_ptr, source_stride, ref_ptr, ref_stride, 8, 8, sse, sum);
-}
-
-unsigned int vp9_mse16x16_c(const uint8_t *src_ptr,
-                            int  source_stride,
-                            const uint8_t *ref_ptr,
-                            int  recon_stride,
+unsigned int vp9_mse16x16_c(const uint8_t *src, int src_stride,
+                            const uint8_t *ref, int ref_stride,
                             unsigned int *sse) {
-  unsigned int var;
-  int avg;
-
-  variance(src_ptr, source_stride, ref_ptr, recon_stride, 16, 16, &var, &avg);
-  *sse = var;
-  return var;
+  int sum;
+  variance(src, src_stride, ref, ref_stride, 16, 16, sse, &sum);
+  return *sse;
 }
 
-unsigned int vp9_mse16x8_c(const uint8_t *src_ptr,
-                           int  source_stride,
-                           const uint8_t *ref_ptr,
-                           int  recon_stride,
+unsigned int vp9_mse16x8_c(const uint8_t *src, int src_stride,
+                           const uint8_t *ref, int ref_stride,
                            unsigned int *sse) {
-  unsigned int var;
-  int avg;
-
-  variance(src_ptr, source_stride, ref_ptr, recon_stride, 16, 8, &var, &avg);
-  *sse = var;
-  return var;
+  int sum;
+  variance(src, src_stride, ref, ref_stride, 16, 8, sse, &sum);
+  return *sse;
 }
 
-unsigned int vp9_mse8x16_c(const uint8_t *src_ptr,
-                           int  source_stride,
-                           const uint8_t *ref_ptr,
-                           int  recon_stride,
+unsigned int vp9_mse8x16_c(const uint8_t *src, int src_stride,
+                           const uint8_t *ref, int ref_stride,
                            unsigned int *sse) {
-  unsigned int var;
-  int avg;
-
-  variance(src_ptr, source_stride, ref_ptr, recon_stride, 8, 16, &var, &avg);
-  *sse = var;
-  return var;
+  int sum;
+  variance(src, src_stride, ref, ref_stride, 8, 16, sse, &sum);
+  return *sse;
 }
 
-unsigned int vp9_mse8x8_c(const uint8_t *src_ptr,
-                          int  source_stride,
-                          const uint8_t *ref_ptr,
-                          int  recon_stride,
+unsigned int vp9_mse8x8_c(const uint8_t *src, int src_stride,
+                          const uint8_t *ref, int ref_stride,
                           unsigned int *sse) {
-  unsigned int var;
-  int avg;
-
-  variance(src_ptr, source_stride, ref_ptr, recon_stride, 8, 8, &var, &avg);
-  *sse = var;
-  return var;
+  int sum;
+  variance(src, src_stride, ref, ref_stride, 8, 8, sse, &sum);
+  return *sse;
 }
 
 VAR(4, 4)
@@ -275,126 +239,6 @@ SUBPIX_AVG_VAR(64, 32)
 VAR(64, 64)
 SUBPIX_VAR(64, 64)
 SUBPIX_AVG_VAR(64, 64)
-
-unsigned int vp9_variance_halfpixvar16x16_h_c(const uint8_t *src_ptr,
-                                              int  source_stride,
-                                              const uint8_t *ref_ptr,
-                                              int  recon_stride,
-                                              unsigned int *sse) {
-  return vp9_sub_pixel_variance16x16_c(src_ptr, source_stride, 8, 0,
-                                       ref_ptr, recon_stride, sse);
-}
-
-unsigned int vp9_variance_halfpixvar32x32_h_c(const uint8_t *src_ptr,
-                                              int  source_stride,
-                                              const uint8_t *ref_ptr,
-                                              int  recon_stride,
-                                              unsigned int *sse) {
-  return vp9_sub_pixel_variance32x32_c(src_ptr, source_stride, 8, 0,
-                                       ref_ptr, recon_stride, sse);
-}
-
-unsigned int vp9_variance_halfpixvar64x64_h_c(const uint8_t *src_ptr,
-                                              int  source_stride,
-                                              const uint8_t *ref_ptr,
-                                              int  recon_stride,
-                                              unsigned int *sse) {
-  return vp9_sub_pixel_variance64x64_c(src_ptr, source_stride, 8, 0,
-                                       ref_ptr, recon_stride, sse);
-}
-
-unsigned int vp9_variance_halfpixvar16x16_v_c(const uint8_t *src_ptr,
-                                              int  source_stride,
-                                              const uint8_t *ref_ptr,
-                                              int  recon_stride,
-                                              unsigned int *sse) {
-  return vp9_sub_pixel_variance16x16_c(src_ptr, source_stride, 0, 8,
-                                       ref_ptr, recon_stride, sse);
-}
-
-unsigned int vp9_variance_halfpixvar32x32_v_c(const uint8_t *src_ptr,
-                                              int  source_stride,
-                                              const uint8_t *ref_ptr,
-                                              int  recon_stride,
-                                              unsigned int *sse) {
-  return vp9_sub_pixel_variance32x32_c(src_ptr, source_stride, 0, 8,
-                                       ref_ptr, recon_stride, sse);
-}
-
-unsigned int vp9_variance_halfpixvar64x64_v_c(const uint8_t *src_ptr,
-                                              int  source_stride,
-                                              const uint8_t *ref_ptr,
-                                              int  recon_stride,
-                                              unsigned int *sse) {
-  return vp9_sub_pixel_variance64x64_c(src_ptr, source_stride, 0, 8,
-                                       ref_ptr, recon_stride, sse);
-}
-
-unsigned int vp9_variance_halfpixvar16x16_hv_c(const uint8_t *src_ptr,
-                                               int  source_stride,
-                                               const uint8_t *ref_ptr,
-                                               int  recon_stride,
-                                               unsigned int *sse) {
-  return vp9_sub_pixel_variance16x16_c(src_ptr, source_stride, 8, 8,
-                                       ref_ptr, recon_stride, sse);
-}
-
-unsigned int vp9_variance_halfpixvar32x32_hv_c(const uint8_t *src_ptr,
-                                               int  source_stride,
-                                               const uint8_t *ref_ptr,
-                                               int  recon_stride,
-                                               unsigned int *sse) {
-  return vp9_sub_pixel_variance32x32_c(src_ptr, source_stride, 8, 8,
-                                       ref_ptr, recon_stride, sse);
-}
-
-unsigned int vp9_variance_halfpixvar64x64_hv_c(const uint8_t *src_ptr,
-                                               int  source_stride,
-                                               const uint8_t *ref_ptr,
-                                               int  recon_stride,
-                                               unsigned int *sse) {
-  return vp9_sub_pixel_variance64x64_c(src_ptr, source_stride, 8, 8,
-                                       ref_ptr, recon_stride, sse);
-}
-
-unsigned int vp9_sub_pixel_mse16x16_c(const uint8_t *src_ptr,
-                                      int  src_pixels_per_line,
-                                      int  xoffset,
-                                      int  yoffset,
-                                      const uint8_t *dst_ptr,
-                                      int dst_pixels_per_line,
-                                      unsigned int *sse) {
-  vp9_sub_pixel_variance16x16_c(src_ptr, src_pixels_per_line,
-                                xoffset, yoffset, dst_ptr,
-                                dst_pixels_per_line, sse);
-  return *sse;
-}
-
-unsigned int vp9_sub_pixel_mse32x32_c(const uint8_t *src_ptr,
-                                      int  src_pixels_per_line,
-                                      int  xoffset,
-                                      int  yoffset,
-                                      const uint8_t *dst_ptr,
-                                      int dst_pixels_per_line,
-                                      unsigned int *sse) {
-  vp9_sub_pixel_variance32x32_c(src_ptr, src_pixels_per_line,
-                                xoffset, yoffset, dst_ptr,
-                                dst_pixels_per_line, sse);
-  return *sse;
-}
-
-unsigned int vp9_sub_pixel_mse64x64_c(const uint8_t *src_ptr,
-                                      int  src_pixels_per_line,
-                                      int  xoffset,
-                                      int  yoffset,
-                                      const uint8_t *dst_ptr,
-                                      int dst_pixels_per_line,
-                                      unsigned int *sse) {
-  vp9_sub_pixel_variance64x64_c(src_ptr, src_pixels_per_line,
-                                xoffset, yoffset, dst_ptr,
-                                dst_pixels_per_line, sse);
-  return *sse;
-}
 
 void vp9_comp_avg_pred(uint8_t *comp_pred, const uint8_t *pred, int width,
                        int height, const uint8_t *ref, int ref_stride) {

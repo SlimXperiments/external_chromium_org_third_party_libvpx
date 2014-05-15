@@ -162,6 +162,7 @@ void vp9_initialize_enc() {
     vp9_rc_init_minq_luts();
     vp9_entropy_mv_init();
     vp9_entropy_mode_init();
+    vp9_temporal_filter_init();
     init_done = 1;
   }
 }
@@ -501,9 +502,9 @@ static void update_frame_size(VP9_COMP *cpi) {
     int y_stride = cpi->scaled_source.y_stride;
 
     if (cpi->sf.search_method == NSTEP) {
-      vp9_init3smotion_compensation(&cpi->mb, y_stride);
+      vp9_init3smotion_compensation(&cpi->ss_cfg, y_stride);
     } else if (cpi->sf.search_method == DIAMOND) {
-      vp9_init_dsmotion_compensation(&cpi->mb, y_stride);
+      vp9_init_dsmotion_compensation(&cpi->ss_cfg, y_stride);
     }
   }
 
@@ -536,7 +537,6 @@ static void set_tile_limits(VP9_COMP *cpi) {
 
 static void init_config(struct VP9_COMP *cpi, VP9EncoderConfig *oxcf) {
   VP9_COMMON *const cm = &cpi->common;
-  int i;
 
   cpi->oxcf = *oxcf;
 
@@ -571,10 +571,6 @@ static void init_config(struct VP9_COMP *cpi, VP9EncoderConfig *oxcf) {
   cpi->alt_fb_idx = 2;
 
   set_tile_limits(cpi);
-
-  cpi->fixed_divide[0] = 0;
-  for (i = 1; i < 512; i++)
-    cpi->fixed_divide[i] = 0x80000 / i;
 }
 
 static int get_pass(MODE mode) {
@@ -782,9 +778,6 @@ VP9_COMP *vp9_create_compressor(VP9EncoderConfig *oxcf) {
 
   cm->error.setjmp = 1;
 
-  CHECK_MEM_ERROR(cm, cpi->mb.ss, vpx_calloc(sizeof(search_site),
-                                             (MAX_MVSEARCH_STEPS * 8) + 1));
-
   vp9_rtcd();
 
   cpi->use_svc = 0;
@@ -829,7 +822,6 @@ VP9_COMP *vp9_create_compressor(VP9EncoderConfig *oxcf) {
                                sizeof(*cpi->mbgraph_stats[i].mb_stats), 1));
   }
 
-  cpi->key_frame_frequency = cpi->oxcf.key_freq;
   cpi->refresh_alt_ref_frame = 0;
 
 #if CONFIG_MULTIPLE_ARF
@@ -974,95 +966,73 @@ VP9_COMP *vp9_create_compressor(VP9EncoderConfig *oxcf) {
       cpi->rd.thresh_freq_fact[i][j] = 32;
   }
 
-#define BFP(BT, SDF, SDAF, VF, SVF, SVAF, SVFHH, SVFHV, SVFHHV, \
-            SDX3F, SDX8F, SDX4DF)\
+#define BFP(BT, SDF, SDAF, VF, SVF, SVAF, SDX3F, SDX8F, SDX4DF)\
     cpi->fn_ptr[BT].sdf            = SDF; \
     cpi->fn_ptr[BT].sdaf           = SDAF; \
     cpi->fn_ptr[BT].vf             = VF; \
     cpi->fn_ptr[BT].svf            = SVF; \
     cpi->fn_ptr[BT].svaf           = SVAF; \
-    cpi->fn_ptr[BT].svf_halfpix_h  = SVFHH; \
-    cpi->fn_ptr[BT].svf_halfpix_v  = SVFHV; \
-    cpi->fn_ptr[BT].svf_halfpix_hv = SVFHHV; \
     cpi->fn_ptr[BT].sdx3f          = SDX3F; \
     cpi->fn_ptr[BT].sdx8f          = SDX8F; \
     cpi->fn_ptr[BT].sdx4df         = SDX4DF;
 
   BFP(BLOCK_32X16, vp9_sad32x16, vp9_sad32x16_avg,
       vp9_variance32x16, vp9_sub_pixel_variance32x16,
-      vp9_sub_pixel_avg_variance32x16, NULL, NULL,
-      NULL, NULL, NULL,
-      vp9_sad32x16x4d)
+      vp9_sub_pixel_avg_variance32x16, NULL, NULL, vp9_sad32x16x4d)
 
   BFP(BLOCK_16X32, vp9_sad16x32, vp9_sad16x32_avg,
       vp9_variance16x32, vp9_sub_pixel_variance16x32,
-      vp9_sub_pixel_avg_variance16x32, NULL, NULL,
-      NULL, NULL, NULL,
-      vp9_sad16x32x4d)
+      vp9_sub_pixel_avg_variance16x32, NULL, NULL, vp9_sad16x32x4d)
 
   BFP(BLOCK_64X32, vp9_sad64x32, vp9_sad64x32_avg,
       vp9_variance64x32, vp9_sub_pixel_variance64x32,
-      vp9_sub_pixel_avg_variance64x32, NULL, NULL,
-      NULL, NULL, NULL,
-      vp9_sad64x32x4d)
+      vp9_sub_pixel_avg_variance64x32, NULL, NULL, vp9_sad64x32x4d)
 
   BFP(BLOCK_32X64, vp9_sad32x64, vp9_sad32x64_avg,
       vp9_variance32x64, vp9_sub_pixel_variance32x64,
-      vp9_sub_pixel_avg_variance32x64, NULL, NULL,
-      NULL, NULL, NULL,
-      vp9_sad32x64x4d)
+      vp9_sub_pixel_avg_variance32x64, NULL, NULL, vp9_sad32x64x4d)
 
   BFP(BLOCK_32X32, vp9_sad32x32, vp9_sad32x32_avg,
       vp9_variance32x32, vp9_sub_pixel_variance32x32,
-      vp9_sub_pixel_avg_variance32x32, vp9_variance_halfpixvar32x32_h,
-      vp9_variance_halfpixvar32x32_v,
-      vp9_variance_halfpixvar32x32_hv, vp9_sad32x32x3, vp9_sad32x32x8,
+      vp9_sub_pixel_avg_variance32x32, vp9_sad32x32x3, vp9_sad32x32x8,
       vp9_sad32x32x4d)
 
   BFP(BLOCK_64X64, vp9_sad64x64, vp9_sad64x64_avg,
       vp9_variance64x64, vp9_sub_pixel_variance64x64,
-      vp9_sub_pixel_avg_variance64x64, vp9_variance_halfpixvar64x64_h,
-      vp9_variance_halfpixvar64x64_v,
-      vp9_variance_halfpixvar64x64_hv, vp9_sad64x64x3, vp9_sad64x64x8,
+      vp9_sub_pixel_avg_variance64x64, vp9_sad64x64x3, vp9_sad64x64x8,
       vp9_sad64x64x4d)
 
   BFP(BLOCK_16X16, vp9_sad16x16, vp9_sad16x16_avg,
       vp9_variance16x16, vp9_sub_pixel_variance16x16,
-      vp9_sub_pixel_avg_variance16x16, vp9_variance_halfpixvar16x16_h,
-      vp9_variance_halfpixvar16x16_v,
-      vp9_variance_halfpixvar16x16_hv, vp9_sad16x16x3, vp9_sad16x16x8,
+      vp9_sub_pixel_avg_variance16x16, vp9_sad16x16x3, vp9_sad16x16x8,
       vp9_sad16x16x4d)
 
   BFP(BLOCK_16X8, vp9_sad16x8, vp9_sad16x8_avg,
       vp9_variance16x8, vp9_sub_pixel_variance16x8,
-      vp9_sub_pixel_avg_variance16x8, NULL, NULL, NULL,
+      vp9_sub_pixel_avg_variance16x8,
       vp9_sad16x8x3, vp9_sad16x8x8, vp9_sad16x8x4d)
 
   BFP(BLOCK_8X16, vp9_sad8x16, vp9_sad8x16_avg,
       vp9_variance8x16, vp9_sub_pixel_variance8x16,
-      vp9_sub_pixel_avg_variance8x16, NULL, NULL, NULL,
+      vp9_sub_pixel_avg_variance8x16,
       vp9_sad8x16x3, vp9_sad8x16x8, vp9_sad8x16x4d)
 
   BFP(BLOCK_8X8, vp9_sad8x8, vp9_sad8x8_avg,
       vp9_variance8x8, vp9_sub_pixel_variance8x8,
-      vp9_sub_pixel_avg_variance8x8, NULL, NULL, NULL,
+      vp9_sub_pixel_avg_variance8x8,
       vp9_sad8x8x3, vp9_sad8x8x8, vp9_sad8x8x4d)
 
   BFP(BLOCK_8X4, vp9_sad8x4, vp9_sad8x4_avg,
       vp9_variance8x4, vp9_sub_pixel_variance8x4,
-      vp9_sub_pixel_avg_variance8x4, NULL, NULL,
-      NULL, NULL, vp9_sad8x4x8,
-      vp9_sad8x4x4d)
+      vp9_sub_pixel_avg_variance8x4, NULL, vp9_sad8x4x8, vp9_sad8x4x4d)
 
   BFP(BLOCK_4X8, vp9_sad4x8, vp9_sad4x8_avg,
       vp9_variance4x8, vp9_sub_pixel_variance4x8,
-      vp9_sub_pixel_avg_variance4x8, NULL, NULL,
-      NULL, NULL, vp9_sad4x8x8,
-      vp9_sad4x8x4d)
+      vp9_sub_pixel_avg_variance4x8, NULL, vp9_sad4x8x8, vp9_sad4x8x4d)
 
   BFP(BLOCK_4X4, vp9_sad4x4, vp9_sad4x4_avg,
       vp9_variance4x4, vp9_sub_pixel_variance4x4,
-      vp9_sub_pixel_avg_variance4x4, NULL, NULL, NULL,
+      vp9_sub_pixel_avg_variance4x4,
       vp9_sad4x4x3, vp9_sad4x4x8, vp9_sad4x4x4d)
 
   cpi->full_search_sad = vp9_full_search_sad;
@@ -1079,10 +1049,6 @@ VP9_COMP *vp9_create_compressor(VP9EncoderConfig *oxcf) {
   vp9_loop_filter_init(cm);
 
   cm->error.setjmp = 0;
-
-#ifdef MODE_TEST_HIT_STATS
-  vp9_zero(cpi->mode_test_hits);
-#endif
 
   return cpi;
 }
@@ -1142,34 +1108,6 @@ void vp9_remove_compressor(VP9_COMP *cpi) {
 
 #endif
 
-#ifdef MODE_TEST_HIT_STATS
-    if (cpi->pass != 1) {
-      double norm_per_pixel_mode_tests = 0;
-      double norm_counts[BLOCK_SIZES];
-      int i;
-      int sb64_per_frame;
-      int norm_factors[BLOCK_SIZES] =
-        {256, 128, 128, 64, 32, 32, 16, 8, 8, 4, 2, 2, 1};
-      FILE *f = fopen("mode_hit_stats.stt", "a");
-
-      // On average, how many mode tests do we do
-      for (i = 0; i < BLOCK_SIZES; ++i) {
-        norm_counts[i] = (double)cpi->mode_test_hits[i] /
-                         (double)norm_factors[i];
-        norm_per_pixel_mode_tests += norm_counts[i];
-      }
-      // Convert to a number per 64x64 and per frame
-      sb64_per_frame = ((cpi->common.height + 63) / 64) *
-                       ((cpi->common.width + 63) / 64);
-      norm_per_pixel_mode_tests =
-        norm_per_pixel_mode_tests /
-        (double)(cpi->common.current_video_frame * sb64_per_frame);
-
-      fprintf(f, "%6.4f\n", norm_per_pixel_mode_tests);
-      fclose(f);
-    }
-#endif
-
 #if 0
     {
       printf("\n_pick_loop_filter_level:%d\n", cpi->time_pick_lpf / 1000);
@@ -1183,7 +1121,6 @@ void vp9_remove_compressor(VP9_COMP *cpi) {
   }
 
   dealloc_compressor_data(cpi);
-  vpx_free(cpi->mb.ss);
   vpx_free(cpi->tok);
 
   for (i = 0; i < sizeof(cpi->mbgraph_stats) /
@@ -1445,77 +1382,67 @@ void vp9_write_yuv_rec_frame(VP9_COMMON *cm) {
 }
 #endif
 
-static void scale_and_extend_frame_nonnormative(YV12_BUFFER_CONFIG *src_fb,
-                                                YV12_BUFFER_CONFIG *dst_fb) {
-  const int in_w = src_fb->y_crop_width;
-  const int in_h = src_fb->y_crop_height;
-  const int out_w = dst_fb->y_crop_width;
-  const int out_h = dst_fb->y_crop_height;
-  const int in_w_uv = src_fb->uv_crop_width;
-  const int in_h_uv = src_fb->uv_crop_height;
-  const int out_w_uv = dst_fb->uv_crop_width;
-  const int out_h_uv = dst_fb->uv_crop_height;
+static void scale_and_extend_frame_nonnormative(const YV12_BUFFER_CONFIG *src,
+                                                YV12_BUFFER_CONFIG *dst) {
+  // TODO(dkovalev): replace YV12_BUFFER_CONFIG with vpx_image_t
   int i;
+  const uint8_t *const srcs[4] = {src->y_buffer, src->u_buffer, src->v_buffer,
+                                  src->alpha_buffer};
+  const int src_strides[4] = {src->y_stride, src->uv_stride, src->uv_stride,
+                              src->alpha_stride};
+  const int src_widths[4] = {src->y_crop_width, src->uv_crop_width,
+                             src->uv_crop_width, src->y_crop_width};
+  const int src_heights[4] = {src->y_crop_height, src->uv_crop_height,
+                              src->uv_crop_height, src->y_crop_height};
+  uint8_t *const dsts[4] = {dst->y_buffer, dst->u_buffer, dst->v_buffer,
+                            dst->alpha_buffer};
+  const int dst_strides[4] = {dst->y_stride, dst->uv_stride, dst->uv_stride,
+                              dst->alpha_stride};
+  const int dst_widths[4] = {dst->y_crop_width, dst->uv_crop_width,
+                             dst->uv_crop_width, dst->y_crop_width};
+  const int dst_heights[4] = {dst->y_crop_height, dst->uv_crop_height,
+                              dst->uv_crop_height, dst->y_crop_height};
 
-  uint8_t *srcs[4] = {src_fb->y_buffer, src_fb->u_buffer, src_fb->v_buffer,
-    src_fb->alpha_buffer};
-  int src_strides[4] = {src_fb->y_stride, src_fb->uv_stride, src_fb->uv_stride,
-    src_fb->alpha_stride};
+  for (i = 0; i < MAX_MB_PLANE; ++i)
+    vp9_resize_plane(srcs[i], src_heights[i], src_widths[i], src_strides[i],
+                     dsts[i], dst_heights[i], dst_widths[i], dst_strides[i]);
 
-  uint8_t *dsts[4] = {dst_fb->y_buffer, dst_fb->u_buffer, dst_fb->v_buffer,
-    dst_fb->alpha_buffer};
-  int dst_strides[4] = {dst_fb->y_stride, dst_fb->uv_stride, dst_fb->uv_stride,
-    dst_fb->alpha_stride};
-
-  for (i = 0; i < MAX_MB_PLANE; ++i) {
-    if (i == 0 || i == 3) {
-      // Y and alpha planes
-      vp9_resize_plane(srcs[i], in_h, in_w, src_strides[i],
-                       dsts[i], out_h, out_w, dst_strides[i]);
-    } else {
-      // Chroma planes
-      vp9_resize_plane(srcs[i], in_h_uv, in_w_uv, src_strides[i],
-                       dsts[i], out_h_uv, out_w_uv, dst_strides[i]);
-    }
-  }
   // TODO(hkuang): Call C version explicitly
   // as neon version only expand border size 32.
-  vp8_yv12_extend_frame_borders_c(dst_fb);
+  vp8_yv12_extend_frame_borders_c(dst);
 }
 
-static void scale_and_extend_frame(YV12_BUFFER_CONFIG *src_fb,
-                                   YV12_BUFFER_CONFIG *dst_fb) {
-  const int in_w = src_fb->y_crop_width;
-  const int in_h = src_fb->y_crop_height;
-  const int out_w = dst_fb->y_crop_width;
-  const int out_h = dst_fb->y_crop_height;
+static void scale_and_extend_frame(const YV12_BUFFER_CONFIG *src,
+                                   YV12_BUFFER_CONFIG *dst) {
+  const int src_w = src->y_crop_width;
+  const int src_h = src->y_crop_height;
+  const int dst_w = dst->y_crop_width;
+  const int dst_h = dst->y_crop_height;
+  const uint8_t *const srcs[4] = {src->y_buffer, src->u_buffer, src->v_buffer,
+                                  src->alpha_buffer};
+  const int src_strides[4] = {src->y_stride, src->uv_stride, src->uv_stride,
+                              src->alpha_stride};
+  uint8_t *const dsts[4] = {dst->y_buffer, dst->u_buffer, dst->v_buffer,
+                            dst->alpha_buffer};
+  const int dst_strides[4] = {dst->y_stride, dst->uv_stride, dst->uv_stride,
+                              dst->alpha_stride};
   int x, y, i;
 
-  uint8_t *srcs[4] = {src_fb->y_buffer, src_fb->u_buffer, src_fb->v_buffer,
-                      src_fb->alpha_buffer};
-  int src_strides[4] = {src_fb->y_stride, src_fb->uv_stride, src_fb->uv_stride,
-                        src_fb->alpha_stride};
-
-  uint8_t *dsts[4] = {dst_fb->y_buffer, dst_fb->u_buffer, dst_fb->v_buffer,
-                      dst_fb->alpha_buffer};
-  int dst_strides[4] = {dst_fb->y_stride, dst_fb->uv_stride, dst_fb->uv_stride,
-                        dst_fb->alpha_stride};
-
-  for (y = 0; y < out_h; y += 16) {
-    for (x = 0; x < out_w; x += 16) {
+  for (y = 0; y < dst_h; y += 16) {
+    for (x = 0; x < dst_w; x += 16) {
       for (i = 0; i < MAX_MB_PLANE; ++i) {
         const int factor = (i == 0 || i == 3 ? 1 : 2);
-        const int x_q4 = x * (16 / factor) * in_w / out_w;
-        const int y_q4 = y * (16 / factor) * in_h / out_h;
+        const int x_q4 = x * (16 / factor) * src_w / dst_w;
+        const int y_q4 = y * (16 / factor) * src_h / dst_h;
         const int src_stride = src_strides[i];
         const int dst_stride = dst_strides[i];
-        uint8_t *src = srcs[i] + y / factor * in_h / out_h * src_stride +
-                                 x / factor * in_w / out_w;
-        uint8_t *dst = dsts[i] + y / factor * dst_stride + x / factor;
+        const uint8_t *src_ptr = srcs[i] + (y / factor) * src_h / dst_h *
+                                     src_stride + (x / factor) * src_w / dst_w;
+        uint8_t *dst_ptr = dsts[i] + (y / factor) * dst_stride + (x / factor);
 
-        vp9_convolve8(src, src_stride, dst, dst_stride,
-                      vp9_sub_pel_filters_8[x_q4 & 0xf], 16 * in_w / out_w,
-                      vp9_sub_pel_filters_8[y_q4 & 0xf], 16 * in_h / out_h,
+        vp9_convolve8(src_ptr, src_stride, dst_ptr, dst_stride,
+                      vp9_sub_pel_filters_8[x_q4 & 0xf], 16 * src_w / dst_w,
+                      vp9_sub_pel_filters_8[y_q4 & 0xf], 16 * src_h / dst_h,
                       16 / factor, 16 / factor);
       }
     }
@@ -1523,7 +1450,7 @@ static void scale_and_extend_frame(YV12_BUFFER_CONFIG *src_fb,
 
   // TODO(hkuang): Call C version explicitly
   // as neon version only expand border size 32.
-  vp8_yv12_extend_frame_borders_c(dst_fb);
+  vp8_yv12_extend_frame_borders_c(dst);
 }
 
 static int find_fp_qindex() {
@@ -1702,7 +1629,7 @@ void vp9_scale_references(VP9_COMP *cpi) {
 
   for (ref_frame = LAST_FRAME; ref_frame <= ALTREF_FRAME; ++ref_frame) {
     const int idx = cm->ref_frame_map[get_ref_frame_idx(cpi, ref_frame)];
-    YV12_BUFFER_CONFIG *const ref = &cm->frame_bufs[idx].buf;
+    const YV12_BUFFER_CONFIG *const ref = &cm->frame_bufs[idx].buf;
 
     if (ref->y_crop_width != cm->width ||
         ref->y_crop_height != cm->height) {
@@ -2134,7 +2061,7 @@ static void encode_frame_to_data_rate(VP9_COMP *cpi,
   cm->lf.mode_ref_delta_update = 0;
 
   // Initialize cpi->mv_step_param to default based on max resolution.
-  cpi->mv_step_param = vp9_init_search_range(cpi, max_mv_def);
+  cpi->mv_step_param = vp9_init_search_range(sf, max_mv_def);
   // Initialize cpi->max_mv_magnitude and cpi->mv_step_param if appropriate.
   if (sf->auto_mv_step_size) {
     if (frame_is_intra_only(cm)) {
@@ -2146,7 +2073,7 @@ static void encode_frame_to_data_rate(VP9_COMP *cpi,
         // Allow mv_steps to correspond to twice the max mv magnitude found
         // in the previous frame, capped by the default max_mv_magnitude based
         // on resolution.
-        cpi->mv_step_param = vp9_init_search_range(cpi, MIN(max_mv_def, 2 *
+        cpi->mv_step_param = vp9_init_search_range(sf, MIN(max_mv_def, 2 *
                                  cpi->max_mv_magnitude));
       cpi->max_mv_magnitude = 0;
     }
